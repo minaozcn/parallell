@@ -1,10 +1,11 @@
 import { Text, View, StyleSheet, Image, ScrollView, useColorScheme } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { CapsuleCard } from "@/components/capsule-card";
 import { PastCapsuleCard } from "@/components/past-capsule-card";
+import { Capsule, fetchCurrentCapsule } from "@/api/capsules";
 
 export default function Index() {
   const scheme = useColorScheme();
@@ -31,12 +32,15 @@ export default function Index() {
 
   // Geçici değerler: ileride backend'den gelecek
   const points = 120;
-  const capsule = {
-    prompt: "Show us your sky.",
-    participantCount: 34,
-    opensAt: "20:00",
-    imageUrl: "https://picsum.photos/600/400",
-  };
+  const [capsule, setCapsule] = useState<Capsule | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Ekran ilk açıldığında bir kez sunucudan güncel kapsülü iste
+  useEffect(() => {
+    fetchCurrentCapsule()
+      .then(setCapsule)
+      .catch((e) => setError(e.message));
+  }, []);
   const pastCapsules = [
     { id: 1, prompt: "Your window view.", date: "16 Eki", status: "revealed", imageUrl: "https://picsum.photos/seed/a/300/300" },
     { id: 2, prompt: "Something blue.", date: "15 Eki", status: "revealed", imageUrl: "https://picsum.photos/seed/b/300/300" },
@@ -53,15 +57,21 @@ export default function Index() {
           <Text style={[styles.points, { color: colors.text }]}>✦ {points}</Text>
         </View>
 
-        <CapsuleCard
-          prompt={capsule.prompt}
-          participantCount={capsule.participantCount}
-          opensAt={capsule.opensAt}
-          imageUrl={capsule.imageUrl}
-          myPhotoUri={photoUri}
-          onJoin={pickPhoto}
-          onDelete={() => setPhotoUri(null)}
-        />
+        {error ? (
+          <Text style={[styles.message, { color: colors.muted }]}>Kapsül yüklenemedi: {error}</Text>
+        ) : !capsule ? (
+          <Text style={[styles.message, { color: colors.muted }]}>Yükleniyor...</Text>
+        ) : (
+          <CapsuleCard
+            prompt={capsule.prompt}
+            participantCount={capsule.participantCount}
+            opensAt={capsule.opensAt}
+            imageUrl={capsule.imageUrl}
+            myPhotoUri={photoUri}
+            onJoin={pickPhoto}
+            onDelete={() => setPhotoUri(null)}
+          />
+        )}
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Geçmiş kapsüller</Text>
         {revealedCapsules.length === 0 ? (
@@ -111,6 +121,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   empty: {
+    fontSize: 14,
+  },
+  message: {
+    marginTop: 16,
     fontSize: 14,
   },
 });
