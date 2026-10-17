@@ -1,7 +1,15 @@
-import { Text, View, StyleSheet, Image, Pressable, ScrollView } from "react-native";
+import { Text, View, StyleSheet, Image, Pressable, ScrollView, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Colors } from "@/constants/theme";
 
 export default function Index() {
+  const scheme = useColorScheme();
+  const colors = Colors[scheme === "dark" ? "dark" : "light"];
+  const logo =
+    scheme === "dark"
+      ? require("../../assets/images/logo-dark.png")
+      : require("../../assets/images/logo-light.png");
+
   // Geçici değerler: ileride backend'den gelecek
   const points = 120;
   const capsule = {
@@ -19,36 +27,36 @@ export default function Index() {
   const revealedCapsules = pastCapsules.filter((c) => c.status === "revealed");
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.wordmark}>parallell</Text>
-          <Text style={styles.points}>✦ {points}</Text>
+          <Image source={logo} style={styles.logo} resizeMode="contain" />
+          <Text style={[styles.points, { color: colors.text }]}>✦ {points}</Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Image source={{ uri: capsule.imageUrl }} style={styles.image} />
           <View style={styles.cardBody}>
-            <Text style={styles.prompt}>{capsule.prompt}</Text>
-            <Text style={styles.meta}>
+            <Text style={[styles.prompt, { color: colors.text }]}>{capsule.prompt}</Text>
+            <Text style={[styles.meta, { color: colors.muted }]}>
               {capsule.participantCount} katılımcı · {capsule.opensAt}'de açılır
             </Text>
             <Pressable
-              style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+              style={({ pressed }) => [styles.button, { backgroundColor: colors.buttonBackground }, pressed && styles.buttonPressed]}
               onPress={() => console.log("katıl")}
             >
-              <Text style={styles.buttonText}>Katıl</Text>
+              <Text style={[styles.buttonText, { color: colors.buttonText }]}>Katıl</Text>
             </Pressable>
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Geçmiş kapsüller</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>Geçmiş kapsüller</Text>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pastList}>
           {revealedCapsules.map((c) => (
             <View key={c.id} style={styles.pastCard}>
               <Image source={{ uri: c.imageUrl }} style={styles.pastImage} />
-              <Text style={styles.pastPrompt} numberOfLines={1}>{c.prompt}</Text>
-              <Text style={styles.meta}>{c.date}</Text>
+              <Text style={[styles.pastPrompt, { color: colors.text }]} numberOfLines={1}>{c.prompt}</Text>
+              <Text style={[styles.meta, { color: colors.muted }]}>{c.date}</Text>
             </View>
           ))}
         </ScrollView>
@@ -71,10 +79,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 12,
   },
-  wordmark: {
-    fontSize: 24,
-    fontWeight: "600",
-    letterSpacing: 1,
+  logo: {
+    width: 120,
+    height: 62,
   },
   points: {
     fontSize: 16,
@@ -83,7 +90,6 @@ const styles = StyleSheet.create({
     marginTop: 16,
     borderRadius: 20,
     overflow: "hidden",
-    backgroundColor: "#F2F2F2",
   },
   image: {
     width: "100%",
@@ -99,13 +105,11 @@ const styles = StyleSheet.create({
   },
   meta: {
     fontSize: 14,
-    color: "#666",
   },
   button: {
     marginTop: 8,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: "#111",
     alignItems: "center",
   },
   buttonPressed: {
@@ -134,7 +138,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   buttonText: {
-    color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
