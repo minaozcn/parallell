@@ -1,5 +1,6 @@
 import { Text, View, StyleSheet, Image, ScrollView, useColorScheme } from "react-native";
 import { useState } from "react";
+import * as ImagePicker from "expo-image-picker";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { CapsuleCard } from "@/components/capsule-card";
@@ -8,7 +9,21 @@ import { PastCapsuleCard } from "@/components/past-capsule-card";
 export default function Index() {
   const scheme = useColorScheme();
   const colors = useColors();
-  const [submitted, setSubmitted] = useState(false);
+  // Kullanıcının seçtiği fotoğrafın telefondaki adresi. null = henüz katılmadı
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  async function pickPhoto() {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setPhotoUri(result.assets[0].uri);
+    }
+  }
   const logo =
     scheme === "dark"
       ? require("../../assets/images/logo-dark.png")
@@ -43,9 +58,9 @@ export default function Index() {
           participantCount={capsule.participantCount}
           opensAt={capsule.opensAt}
           imageUrl={capsule.imageUrl}
-          submitted={submitted}
-          onJoin={() => setSubmitted(true)}
-          onDelete={() => setSubmitted(false)}
+          myPhotoUri={photoUri}
+          onJoin={pickPhoto}
+          onDelete={() => setPhotoUri(null)}
         />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Geçmiş kapsüller</Text>

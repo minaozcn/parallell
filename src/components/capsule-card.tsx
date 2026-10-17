@@ -6,17 +6,18 @@ type Props = {
   participantCount: number;
   opensAt: string;
   imageUrl: string;
-  submitted: boolean;
+  myPhotoUri: string | null;
   onJoin: () => void;
   onDelete: () => void;
 };
 
-export function CapsuleCard({ prompt, participantCount, opensAt, imageUrl, submitted, onJoin, onDelete }: Props) {
+export function CapsuleCard({ prompt, participantCount, opensAt, imageUrl, myPhotoUri, onJoin, onDelete }: Props) {
   const colors = useColors();
+  const submitted = myPhotoUri !== null;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.card }]}>
-      <Image source={{ uri: imageUrl }} style={styles.image} />
+      <Image source={{ uri: myPhotoUri ?? imageUrl }} style={styles.image} />
       <View style={styles.body}>
         <Text style={[styles.prompt, { color: colors.text }]}>{prompt}</Text>
         <Text style={[styles.meta, { color: colors.muted }]}>
