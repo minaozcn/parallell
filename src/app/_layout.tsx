@@ -1,6 +1,5 @@
-import { Tabs } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { Ionicons } from "@expo/vector-icons";
 import { useColors } from "@/hooks/use-colors";
 
 export default function RootLayout() {
@@ -9,43 +8,16 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="auto" />
-      <Tabs
+      <Stack
         screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: colors.text,
-          tabBarInactiveTintColor: colors.muted,
-          tabBarStyle: { backgroundColor: colors.background, borderTopColor: colors.card },
+          headerStyle: { backgroundColor: colors.background },
+          headerTintColor: colors.text,
+          contentStyle: { backgroundColor: colors.background },
         }}
       >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: "Home",
-            tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="archive"
-          options={{
-            title: "Archive",
-            tabBarIcon: ({ color, size }) => <Ionicons name="albums-outline" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="rewards"
-          options={{
-            title: "Rewards",
-            tabBarIcon: ({ color, size }) => <Ionicons name="gift-outline" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="profile"
-          options={{
-            title: "Profile",
-            tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} />,
-          }}
-        />
-      </Tabs>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="capsule/[id]" options={{ title: "" , headerBackTitle: "Geri" }} />
+      </Stack>
     </>
   );
 }
