@@ -1,10 +1,14 @@
-import { Text, View, StyleSheet, Image, Pressable, ScrollView, useColorScheme } from "react-native";
+import { Text, View, StyleSheet, Image, ScrollView, useColorScheme } from "react-native";
+import { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
+import { CapsuleCard } from "@/components/capsule-card";
+import { PastCapsuleCard } from "@/components/past-capsule-card";
 
 export default function Index() {
   const scheme = useColorScheme();
   const colors = useColors();
+  const [submitted, setSubmitted] = useState(false);
   const logo =
     scheme === "dark"
       ? require("../../assets/images/logo-dark.png")
@@ -34,32 +38,28 @@ export default function Index() {
           <Text style={[styles.points, { color: colors.text }]}>✦ {points}</Text>
         </View>
 
-        <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Image source={{ uri: capsule.imageUrl }} style={styles.image} />
-          <View style={styles.cardBody}>
-            <Text style={[styles.prompt, { color: colors.text }]}>{capsule.prompt}</Text>
-            <Text style={[styles.meta, { color: colors.muted }]}>
-              {capsule.participantCount} katılımcı · {capsule.opensAt}'de açılır
-            </Text>
-            <Pressable
-              style={({ pressed }) => [styles.button, { backgroundColor: colors.buttonBackground }, pressed && styles.buttonPressed]}
-              onPress={() => console.log("katıl")}
-            >
-              <Text style={[styles.buttonText, { color: colors.buttonText }]}>Katıl</Text>
-            </Pressable>
-          </View>
-        </View>
+        <CapsuleCard
+          prompt={capsule.prompt}
+          participantCount={capsule.participantCount}
+          opensAt={capsule.opensAt}
+          imageUrl={capsule.imageUrl}
+          submitted={submitted}
+          onJoin={() => setSubmitted(true)}
+          onDelete={() => setSubmitted(false)}
+        />
 
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Geçmiş kapsüller</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pastList}>
-          {revealedCapsules.map((c) => (
-            <View key={c.id} style={styles.pastCard}>
-              <Image source={{ uri: c.imageUrl }} style={styles.pastImage} />
-              <Text style={[styles.pastPrompt, { color: colors.text }]} numberOfLines={1}>{c.prompt}</Text>
-              <Text style={[styles.meta, { color: colors.muted }]}>{c.date}</Text>
-            </View>
-          ))}
-        </ScrollView>
+        {revealedCapsules.length === 0 ? (
+          <Text style={[styles.empty, { color: colors.muted }]}>
+            Henüz açılmış bir kapsül yok. İlk kapsül açıldığında burada görünecek.
+          </Text>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pastList}>
+            {revealedCapsules.map((c) => (
+              <PastCapsuleCard key={c.id} prompt={c.prompt} date={c.date} imageUrl={c.imageUrl} />
+            ))}
+          </ScrollView>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -86,35 +86,6 @@ const styles = StyleSheet.create({
   points: {
     fontSize: 16,
   },
-  card: {
-    marginTop: 16,
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  image: {
-    width: "100%",
-    height: 220,
-  },
-  cardBody: {
-    padding: 16,
-    gap: 8,
-  },
-  prompt: {
-    fontSize: 22,
-    fontWeight: "600",
-  },
-  meta: {
-    fontSize: 14,
-  },
-  button: {
-    marginTop: 8,
-    paddingVertical: 14,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-  buttonPressed: {
-    opacity: 0.7,
-  },
   sectionTitle: {
     marginTop: 32,
     marginBottom: 12,
@@ -124,21 +95,7 @@ const styles = StyleSheet.create({
   pastList: {
     gap: 12,
   },
-  pastCard: {
-    width: 140,
-    gap: 4,
-  },
-  pastImage: {
-    width: 140,
-    height: 140,
-    borderRadius: 16,
-  },
-  pastPrompt: {
+  empty: {
     fontSize: 14,
-    fontWeight: "500",
-  },
-  buttonText: {
-    fontSize: 16,
-    fontWeight: "600",
   },
 });
