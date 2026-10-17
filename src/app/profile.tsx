@@ -1,10 +1,9 @@
-import { Text, StyleSheet, useColorScheme } from "react-native";
+import { Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "@/constants/theme";
+import { useColors } from "@/hooks/use-colors";
 
 export default function Profile() {
-  const scheme = useColorScheme();
-  const colors = Colors[scheme === "dark" ? "dark" : "light"];
+  const colors = useColors();
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>

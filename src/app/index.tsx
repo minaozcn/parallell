@@ -1,10 +1,10 @@
 import { Text, View, StyleSheet, Image, Pressable, ScrollView, useColorScheme } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Colors } from "@/constants/theme";
+import { useColors } from "@/hooks/use-colors";
 
 export default function Index() {
   const scheme = useColorScheme();
-  const colors = Colors[scheme === "dark" ? "dark" : "light"];
+  const colors = useColors();
   const logo =
     scheme === "dark"
       ? require("../../assets/images/logo-dark.png")
