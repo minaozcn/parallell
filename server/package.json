@@ -8,6 +8,8 @@
     "db:setup": "node --env-file=.env db-setup.js"
   },
   "dependencies": {
-    "express": "^5.3.0"
+    "express": "^5.3.0",
+    "multer": "^2.5.0",
+    "mysql2": "^3.24.6"
   }
 }
