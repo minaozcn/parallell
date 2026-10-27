@@ -1,3 +1,4 @@
+import { File as DeviceFile } from "expo-file-system";
 import { api } from "./client";
 
 export type CurrentCapsule = {
@@ -28,8 +29,9 @@ export const fetchGallery = (capsuleId: number) => api<Gallery>(`/api/capsules/$
 
 export function submitContribution(capsuleId: number, photoUri: string) {
   const form = new FormData();
-  // React Native'de dosya, uri/name/type içeren bir nesne olarak eklenir
-  form.append("photo", { uri: photoUri, name: "photo.jpg", type: "image/jpeg" } as unknown as Blob);
+  // SDK 58'in fetch'i eski { uri, name, type } nesnesini desteklemiyor;
+  // dosyayı expo-file-system'in File nesnesiyle ekliyoruz (adı ve MIME türünü kendisi bilir).
+  form.append("photo", new DeviceFile(photoUri) as unknown as Blob);
   return api<{ id: number; pointsAwarded: number; photoUrl: string }>(`/api/capsules/${capsuleId}/contributions`, {
     method: "POST",
     body: form,

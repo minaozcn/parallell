@@ -32,8 +32,9 @@ export async function api<T>(path: string, options: RequestInit = {}): Promise<T
       ...options,
       headers: { ...options.headers, "X-User-Token": token },
     });
-  } catch {
-    throw new Error("Sunucuya ulaşılamadı");
+  } catch (e) {
+    console.warn(`İstek başarısız: ${options.method ?? "GET"} ${path}`, e);
+    throw new Error(`Sunucuya ulaşılamadı (${(e as Error).message})`);
   }
   if (res.status === 204) return undefined as T;
   const body = await res.json().catch(() => ({}));

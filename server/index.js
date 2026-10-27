@@ -11,6 +11,11 @@ const app = express();
 const UPLOAD_DIR = path.resolve("uploads");
 fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
+// Her isteği terminale yaz: telefondan istek gelip gelmediğini görmek için
+app.use((req, res, next) => {
+  res.on("finish", () => console.log(`${req.method} ${req.originalUrl} → ${res.statusCode}`));
+  next();
+});
 app.use(express.json());
 app.use("/uploads", express.static(UPLOAD_DIR));
 
@@ -222,4 +227,10 @@ app.use((error, req, res, next) => {
 });
 
 const PORT = Number(process.env.PORT);
-app.listen(PORT, "0.0.0.0", () => console.log(`Sunucu çalışıyor: http://localhost:${PORT}`));
+app.listen(PORT, "0.0.0.0", (error) => {
+  if (error) {
+    console.error(`Sunucu başlatılamadı: ${error.message}`);
+    process.exit(1);
+  }
+  console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
+});
