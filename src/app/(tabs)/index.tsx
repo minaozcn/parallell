@@ -58,16 +58,35 @@ export default function Home() {
     }
   }
 
-  async function pickPhoto() {
-    const result = await ImagePicker.launchImageLibraryAsync({
+  async function pickPhoto(source: "camera" | "library") {
+    const options: ImagePicker.ImagePickerOptions = {
       mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
-    });
+    };
+    let result: ImagePicker.ImagePickerResult;
+    if (source === "camera") {
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        Alert.alert("Kamera izni gerekli", "Fotoğraf çekmek için Ayarlar'dan kamera iznini açabilirsin.");
+        return;
+      }
+      result = await ImagePicker.launchCameraAsync(options);
+    } else {
+      result = await ImagePicker.launchImageLibraryAsync(options);
+    }
     if (result.canceled) return;
     setPendingUri(result.assets[0].uri);
     upload(result.assets[0].uri);
+  }
+
+  function choosePhotoSource() {
+    Alert.alert("Katıl", "Bu anı nasıl paylaşmak istersin?", [
+      { text: "Fotoğraf çek", onPress: () => pickPhoto("camera") },
+      { text: "Galeriden seç", onPress: () => pickPhoto("library") },
+      { text: "Vazgeç", style: "cancel" },
+    ]);
   }
 
   function confirmDelete() {
@@ -112,13 +131,15 @@ export default function Home() {
             prompt={capsule.prompt}
             participantCount={capsule.participantCount}
             opensAt={formatTime(capsule.opensAt)}
+            opensAtIso={capsule.opensAt}
             imageUrl={capsule.imageUrl}
             myPhotoUrl={pendingUri ?? capsule.myContribution?.photoUrl ?? null}
             status={status}
             error={uploadError}
-            onJoin={pickPhoto}
+            onJoin={choosePhotoSource}
             onRetry={() => pendingUri && upload(pendingUri)}
             onDelete={confirmDelete}
+            onOpenGallery={() => router.push({ pathname: "/capsule/[id]", params: { id: String(capsule.id) } })}
           />
         )}
 

@@ -1,4 +1,5 @@
 import { pool } from "./db.js";
+import { promptFor } from "./prompts.js";
 
 const ISTANBUL_OFFSET_HOURS = 3; // Türkiye yaz/kış saati uygulamıyor: her zaman UTC+3
 
@@ -24,7 +25,7 @@ export async function ensureUpcomingCapsule() {
   const seed = opensAt.toISOString().slice(0, 10);
   await pool.query(
     "INSERT IGNORE INTO capsules (prompt, image_url, opens_at) VALUES (?, ?, ?)",
-    [process.env.DAILY_PROMPT, `https://picsum.photos/seed/${seed}/600/400`, opensAt],
+    [promptFor(opensAt), `https://picsum.photos/seed/${seed}/600/400`, opensAt],
   );
 }
 

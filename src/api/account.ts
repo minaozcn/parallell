@@ -8,3 +8,10 @@ export const fetchMe = () => api<Me>("/api/me");
 export const fetchTransactions = () => api<Transaction[]>("/api/me/transactions");
 export const fetchShopItems = () => api<ShopItem[]>("/api/shop/items");
 export const purchaseItem = (id: number) => api<{ ok: true }>(`/api/shop/items/${id}/purchase`, { method: "POST" });
+
+export const updateDisplayName = (displayName: string) =>
+  api<{ displayName: string }>("/api/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ displayName }),
+  });

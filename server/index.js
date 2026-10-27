@@ -70,6 +70,16 @@ app.get("/api/me", async (req, res) => {
   });
 });
 
+app.patch("/api/me", async (req, res) => {
+  const name = String(req.body?.displayName ?? "").trim();
+  // 2-24 karakter: harf (Türkçe dahil), rakam, boşluk, nokta, alt çizgi, tire
+  if (!/^[\p{L}\p{N} ._-]{2,24}$/u.test(name)) {
+    throw new HttpError(400, "Ad 2-24 karakter olmalı; harf, rakam, boşluk, . _ - kullanılabilir");
+  }
+  await pool.query("UPDATE users SET display_name = ? WHERE id = ?", [name, req.user.id]);
+  res.json({ displayName: name });
+});
+
 app.get("/api/me/transactions", async (req, res) => {
   const [rows] = await pool.query(
     "SELECT id, amount, reason, created_at AS createdAt FROM point_transactions WHERE user_id = ? ORDER BY id DESC LIMIT 50",

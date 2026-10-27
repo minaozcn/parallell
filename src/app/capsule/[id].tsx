@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
-import { FlatList, Image, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { FlatList, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { Muted } from "@/components/screen";
+import { PhotoViewer } from "@/components/photo-viewer";
 import { Gallery, fetchGallery } from "@/api/capsules";
 import { formatDate } from "@/utils/format";
 
@@ -17,6 +18,7 @@ export default function CapsuleGallery() {
 
   const [gallery, setGallery] = useState<Gallery | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
 
   useEffect(() => {
     fetchGallery(Number(id)).then(setGallery).catch((e) => setError(e.message));
@@ -32,19 +34,22 @@ export default function CapsuleGallery() {
         data={gallery?.contributions ?? []}
         keyExtractor={(c) => String(c.id)}
         ListHeaderComponent={
-          gallery && (
+          gallery ? (
             <Text style={{ color: colors.muted, marginBottom: 8 }}>
               {formatDate(gallery.capsule.opensAt)} · {gallery.contributions.length} farklı yerden aynı an
             </Text>
-          )
+          ) : undefined
         }
         ListEmptyComponent={
           <Muted>{error ? `Yüklenemedi: ${error}` : gallery ? "Bu kapsüle kimse katılmadı." : "Yükleniyor..."}</Muted>
         }
-        renderItem={({ item }) => (
-          <Image source={{ uri: item.photoUrl }} style={{ width: size, height: size, borderRadius: 14 }} />
+        renderItem={({ item, index }) => (
+          <Pressable onPress={() => setViewerIndex(index)}>
+            <Image source={{ uri: item.photoUrl }} style={{ width: size, height: size, borderRadius: 14 }} />
+          </Pressable>
         )}
       />
+      <PhotoViewer photos={gallery?.contributions ?? []} index={viewerIndex} onClose={() => setViewerIndex(null)} />
     </View>
   );
 }

@@ -1,12 +1,15 @@
 import { ActivityIndicator, Text, View, StyleSheet, Image, Pressable } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import { useNow } from "@/hooks/use-now";
+import { formatCountdown } from "@/utils/format";
 
 export type ContributionStatus = "idle" | "uploading" | "failed" | "submitted";
 
 type Props = {
   prompt: string;
   participantCount: number;
-  opensAt: string;
+  opensAt: string; // "20:00" gibi gösterim
+  opensAtIso: string; // geri sayım için
   imageUrl: string;
   myPhotoUrl: string | null;
   status: ContributionStatus;
@@ -14,10 +17,13 @@ type Props = {
   onJoin: () => void;
   onRetry: () => void;
   onDelete: () => void;
+  onOpenGallery: () => void;
 };
 
 export function CapsuleCard(p: Props) {
   const colors = useColors();
+  const remaining = new Date(p.opensAtIso).getTime() - useNow();
+  const revealed = remaining <= 0;
 
   const primary = (label: string, onPress: () => void) => (
     <Pressable
@@ -43,19 +49,24 @@ export function CapsuleCard(p: Props) {
       <View style={styles.body}>
         <Text style={[styles.prompt, { color: colors.text }]}>{p.prompt}</Text>
         <Text style={[styles.meta, { color: colors.muted }]}>
-          {p.participantCount} katılımcı · {p.opensAt}'de açılır
+          {p.participantCount} katılımcı · {revealed ? "açıldı" : `${p.opensAt}'de açılır`}
         </Text>
+        {!revealed && (
+          <Text style={[styles.countdown, { color: colors.text }]}>{formatCountdown(remaining)} sonra açılıyor</Text>
+        )}
 
-        {p.status === "idle" && primary("Katıl", p.onJoin)}
+        {revealed && primary("Kapsül açıldı · Galeriyi gör", p.onOpenGallery)}
 
-        {p.status === "uploading" && (
+        {!revealed && p.status === "idle" && primary("Katıl", p.onJoin)}
+
+        {!revealed && p.status === "uploading" && (
           <View style={styles.row}>
             <ActivityIndicator color={colors.text} />
             <Text style={[styles.meta, { color: colors.text }]}>Gönderiliyor...</Text>
           </View>
         )}
 
-        {p.status === "failed" && (
+        {!revealed && p.status === "failed" && (
           <>
             <Text style={[styles.status, { color: colors.text }]}>Gönderilemedi: {p.error}</Text>
             {primary("Tekrar dene", p.onRetry)}
@@ -63,7 +74,7 @@ export function CapsuleCard(p: Props) {
           </>
         )}
 
-        {p.status === "submitted" && (
+        {!revealed && p.status === "submitted" && (
           <>
             <Text style={[styles.status, { color: colors.text }]}>
               ✓ Katkın gönderildi. {p.opensAt}'de diğerleriyle birlikte açılacak.
@@ -82,6 +93,7 @@ const styles = StyleSheet.create({
   body: { padding: 16, gap: 8 },
   prompt: { fontSize: 22, fontWeight: "600" },
   meta: { fontSize: 14 },
+  countdown: { fontSize: 15, fontWeight: "500", fontVariant: ["tabular-nums"] },
   status: { marginTop: 8, fontSize: 14 },
   row: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 8 },
   button: { marginTop: 8, paddingVertical: 14, borderRadius: 14, alignItems: "center" },
