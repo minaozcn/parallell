@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "node --env-file=.env --watch index.js",
-    "db:setup": "node --env-file=.env db-setup.js"
+    "db:setup": "node --env-file=.env db-setup.js",
+    "db:seed": "node --env-file=.env seed-mock.js",
+    "db:unseed": "node --env-file=.env seed-mock.js --clean"
   },
   "dependencies": {
     "express": "^5.3.0",
