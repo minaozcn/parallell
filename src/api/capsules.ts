@@ -1,5 +1,6 @@
 import { File as DeviceFile } from "expo-file-system";
 import { api } from "./client";
+import type { ApproxLocation } from "@/utils/location";
 
 export type CurrentCapsule = {
   id: number;
@@ -18,17 +19,32 @@ export type RevealedCapsule = {
   coverUrl: string;
 };
 
+export type Contribution = {
+  id: number;
+  photoUrl: string;
+  city: string | null;
+  country: string | null;
+  lat: number | null;
+  lng: number | null;
+};
+
 export type Gallery = {
   capsule: { id: number; prompt: string; opensAt: string };
-  contributions: { id: number; photoUrl: string }[];
+  contributions: Contribution[];
 };
 
 export const fetchCurrentCapsule = () => api<CurrentCapsule>("/api/capsules/current");
 export const fetchRevealedCapsules = () => api<RevealedCapsule[]>("/api/capsules/revealed");
 export const fetchGallery = (capsuleId: number) => api<Gallery>(`/api/capsules/${capsuleId}/contributions`);
 
-export function submitContribution(capsuleId: number, photoUri: string) {
+export function submitContribution(capsuleId: number, photoUri: string, location: ApproxLocation | null) {
   const form = new FormData();
+  if (location) {
+    form.append("lat", String(location.lat));
+    form.append("lng", String(location.lng));
+    if (location.city) form.append("city", location.city);
+    if (location.country) form.append("country", location.country);
+  }
   // SDK 58'in fetch'i eski { uri, name, type } nesnesini desteklemiyor;
   // dosyayı expo-file-system'in File nesnesiyle ekliyoruz (adı ve MIME türünü kendisi bilir).
   form.append("photo", new DeviceFile(photoUri) as unknown as Blob);

@@ -9,6 +9,7 @@ import { PastCapsuleCard } from "@/components/past-capsule-card";
 import { CurrentCapsule, RevealedCapsule, fetchCurrentCapsule, fetchRevealedCapsules, submitContribution, deleteContribution } from "@/api/capsules";
 import { fetchMe } from "@/api/account";
 import { formatDate, formatTime } from "@/utils/format";
+import { getApproxLocation } from "@/utils/location";
 
 export default function Home() {
   const scheme = useColorScheme();
@@ -48,7 +49,8 @@ export default function Home() {
     setUploading(true);
     setUploadError(null);
     try {
-      await submitContribution(capsule.id, uri);
+      const location = await getApproxLocation(); // izin yoksa null: konumsuz katılım
+      await submitContribution(capsule.id, uri, location);
       setPendingUri(null); // başarı: artık sunucudaki fotoğrafı göstereceğiz
       await load();
     } catch (e) {

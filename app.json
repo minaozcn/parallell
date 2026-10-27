@@ -32,6 +32,19 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "parallell, fotoğrafının altında yalnızca şehrini göstermek için konumunu kullanır. Kesin konumun asla paylaşılmaz."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Kapsüle katılmak için bir fotoğraf seçebilmen gerekiyor.",
+          "cameraPermission": "Kapsüle katılmak için o anı fotoğraflayabilmen gerekiyor."
+        }
       ]
     ],
     "experiments": {

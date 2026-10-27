@@ -36,6 +36,32 @@ class HttpError extends Error {
   }
 }
 
+// Telefondan gelen konum alanlarını doğrular; geçersiz/eksikse konumsuz kaydedilir.
+function parseLocation(body) {
+  const lat = Number(body?.lat);
+  const lng = Number(body?.lng);
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180;
+  const city = typeof body?.city === "string" ? body.city.trim().slice(0, 100) || null : null;
+  const country = typeof body?.country === "string" && /^[A-Za-z]{2}$/.test(body.country) ? body.country.toUpperCase() : null;
+  return {
+    city,
+    country,
+    lat: hasCoords ? Math.round(lat * 10) / 10 : null, // sunucuda da yuvarla: telefona güvenme
+    lng: hasCoords ? Math.round(lng * 10) / 10 : null,
+  };
+}
+
+function formatContribution(req, r) {
+  return {
+    id: r.id,
+    photoUrl: photoUrl(req, r.photo_path),
+    city: r.city,
+    country: r.country,
+    lat: r.lat === null ? null : Number(r.lat),
+    lng: r.lng === null ? null : Number(r.lng),
+  };
+}
+
 // --- Kimlik: anonim kullanıcı + token ---
 
 app.post("/api/users", async (req, res) => {
@@ -135,12 +161,12 @@ app.get("/api/capsules/:id/contributions", async (req, res) => {
   if (!isRevealed(capsule)) throw new HttpError(403, "Kapsül henüz açılmadı");
 
   const [rows] = await pool.query(
-    "SELECT id, photo_path FROM contributions WHERE capsule_id = ? AND deleted_at IS NULL ORDER BY created_at",
+    "SELECT id, photo_path, city, country, lat, lng FROM contributions WHERE capsule_id = ? AND deleted_at IS NULL ORDER BY created_at",
     [capsule.id],
   );
   res.json({
     capsule: { id: capsule.id, prompt: capsule.prompt, opensAt: capsule.opens_at },
-    contributions: rows.map((r) => ({ id: r.id, photoUrl: photoUrl(req, r.photo_path) })),
+    contributions: rows.map((r) => formatContribution(req, r)),
   });
 });
 
@@ -158,9 +184,11 @@ app.post("/api/capsules/:id/contributions", upload.single("photo"), async (req, 
       const before = await countParticipants(conn, capsule.id);
       let insert;
       try {
+        const loc = parseLocation(req.body);
         [insert] = await conn.query(
-          "INSERT INTO contributions (capsule_id, user_id, photo_path, created_at) VALUES (?, ?, ?, ?)",
-          [capsule.id, req.user.id, req.file.filename, new Date()],
+          `INSERT INTO contributions (capsule_id, user_id, photo_path, created_at, city, country, lat, lng)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [capsule.id, req.user.id, req.file.filename, new Date(), loc.city, loc.country, loc.lat, loc.lng],
         );
       } catch (e) {
         if (e.code === "ER_DUP_ENTRY") throw new HttpError(409, "Bu kapsüle zaten katıldın");

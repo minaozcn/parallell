@@ -1,8 +1,10 @@
 import { FlatList, Image, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import type { Contribution } from "@/api/capsules";
+import { formatPlace } from "@/utils/location";
 
 type Props = {
-  photos: { id: number; photoUrl: string }[];
+  photos: Contribution[];
   index: number | null; // null = kapalı
   onClose: () => void;
 };
@@ -25,7 +27,12 @@ export function PhotoViewer({ photos, index, onClose }: Props) {
             getItemLayout={(_, i) => ({ length: width, offset: width * i, index: i })}
             keyExtractor={(p) => String(p.id)}
             renderItem={({ item }) => (
-              <Image source={{ uri: item.photoUrl }} style={{ width, height }} resizeMode="contain" />
+              <View style={{ width, height }}>
+                <Image source={{ uri: item.photoUrl }} style={{ width, height }} resizeMode="contain" />
+                {item.city || item.country ? (
+                  <Text style={[styles.place, { bottom: insets.bottom + 24 }]}>{formatPlace(item.city, item.country)}</Text>
+                ) : null}
+              </View>
             )}
           />
         )}
@@ -41,4 +48,5 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   close: { position: "absolute", right: 20 },
   closeText: { color: "#fff", fontSize: 24 },
+  place: { position: "absolute", alignSelf: "center", color: "#fff", fontSize: 16, fontWeight: "500" },
 });
