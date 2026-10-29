@@ -3,7 +3,10 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { Screen, Muted } from "@/components/screen";
-import { Me, fetchMe, updateDisplayName } from "@/api/account";
+import { Achievement, Me, fetchAchievements, fetchMe, toggleBadge, updateDisplayName } from "@/api/account";
+import { FRAME_COLORS } from "@/constants/cosmetics";
+import { AchievementGrid } from "@/components/achievement-grid";
+import { Ionicons } from "@expo/vector-icons";
 
 export default function Profile() {
   const colors = useColors();
@@ -11,6 +14,27 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+
+  const load = useCallback(() => {
+    Promise.all([fetchMe(), fetchAchievements()])
+      .then(([m, list]) => {
+        setMe(m);
+        setName(m.displayName);
+        setAchievements(list);
+        setError(null);
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+
+  async function onToggleBadge(a: Achievement) {
+    try {
+      await toggleBadge(a.key);
+      load();
+    } catch (e) {
+      Alert.alert("Değiştirilemedi", (e as Error).message);
+    }
+  }
 
   async function saveName() {
     setSaving(true);
@@ -24,13 +48,7 @@ export default function Profile() {
     }
   }
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchMe()
-        .then((m) => { setMe(m); setName(m.displayName); setError(null); })
-        .catch((e) => setError(e.message));
-    }, []),
-  );
+  useFocusEffect(load);
 
   return (
     <Screen>
@@ -39,9 +57,30 @@ export default function Profile() {
         {error && <Muted>Yüklenemedi: {error}</Muted>}
         {me && (
           <>
-            <View style={[styles.card, { backgroundColor: colors.card }]}>
-              <Text style={[styles.name, { color: colors.text }]}>{me.displayName}</Text>
+            <View
+              style={[
+                styles.card,
+                { backgroundColor: colors.card },
+                me.equipped.frame && { borderWidth: 2, borderColor: FRAME_COLORS[me.equipped.frame] },
+              ]}
+            >
+              <View style={styles.nameLine}>
+                <Text style={[styles.name, { color: colors.text }]}>{me.displayName}</Text>
+                {me.badge ? (
+                  <View style={[styles.badge, { backgroundColor: colors.buttonBackground }]}>
+                    <Ionicons name={me.badge.icon as React.ComponentProps<typeof Ionicons>["name"]} size={13} color={colors.buttonText} />
+                    <Text style={{ color: colors.buttonText, fontSize: 12, fontWeight: "600" }}>{me.badge.name}</Text>
+                  </View>
+                ) : null}
+              </View>
               <Text style={{ color: colors.muted }}>✦ {me.points} puan</Text>
+              <Text style={{ color: colors.muted }}>
+                {me.stats.thisMonth > 0
+                  ? `Bu ay ${me.stats.thisMonth} kapsüle katıldın · toplam ${me.stats.total}`
+                  : me.stats.total > 0
+                    ? `Toplam ${me.stats.total} kapsüle katıldın`
+                    : "Henüz bir kapsüle katılmadın"}
+              </Text>
             </View>
 
             <Text style={[styles.section, { color: colors.text }]}>Görünen adın</Text>
@@ -68,12 +107,21 @@ export default function Profile() {
               </Pressable>
             </View>
 
+            <Text style={[styles.section, { color: colors.text }]}>
+              Rozetler · {achievements.filter((a) => a.earnedAt).length}/{achievements.length}
+            </Text>
+            <Muted>Kazandığın bir rozete dokunarak profilinde gösterebilirsin.</Muted>
+            <AchievementGrid achievements={achievements} onToggle={onToggleBadge} />
+
             <Text style={[styles.section, { color: colors.text }]}>Eşyaların</Text>
             {me.items.length === 0 ? (
               <Muted>Henüz bir eşyan yok. Rewards sekmesinden puanlarınla alabilirsin.</Muted>
             ) : (
               me.items.map((i) => (
-                <Text key={i.id} style={{ color: colors.text }}>• {i.name}</Text>
+                <Text key={i.id} style={{ color: colors.text }}>
+                  • {i.name}
+                  {i.equipped ? <Text style={{ color: colors.muted }}> · kullanılıyor</Text> : null}
+                </Text>
               ))
             )}
 
@@ -90,6 +138,8 @@ const styles = StyleSheet.create({
   title: { marginTop: 16, fontSize: 24, fontWeight: "600" },
   card: { padding: 20, borderRadius: 20, gap: 4 },
   name: { fontSize: 20, fontWeight: "600" },
+  nameLine: { flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" },
+  badge: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
   section: { marginTop: 20, fontSize: 18, fontWeight: "600" },
   nameRow: { flexDirection: "row", gap: 8 },
   input: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, fontSize: 16 },

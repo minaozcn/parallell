@@ -3,7 +3,8 @@ import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-nati
 import { useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { Screen, Muted } from "@/components/screen";
-import { ShopItem, Transaction, fetchMe, fetchShopItems, fetchTransactions, purchaseItem } from "@/api/account";
+import { ShopItem, Transaction, equipItem, fetchMe, fetchShopItems, fetchTransactions, purchaseItem } from "@/api/account";
+import { useAppTheme } from "@/hooks/app-theme";
 import { formatDate } from "@/utils/format";
 
 const REASONS: Record<string, string> = {
@@ -23,6 +24,7 @@ const TYPES: Record<ShopItem["type"], string> = {
 
 export default function Rewards() {
   const colors = useColors();
+  const { setThemeStyle } = useAppTheme();
   const [points, setPoints] = useState<number | null>(null);
   const [items, setItems] = useState<ShopItem[]>([]);
   const [history, setHistory] = useState<Transaction[]>([]);
@@ -42,8 +44,18 @@ export default function Rewards() {
 
   useFocusEffect(useCallback(() => { load(); }, [load]));
 
+  async function toggleEquip(item: ShopItem) {
+    try {
+      const { equipped } = await equipItem(item.id);
+      setThemeStyle(equipped.theme); // tema değiştiyse tüm uygulama anında yeni renklere geçer
+      await load();
+    } catch (e) {
+      Alert.alert("Değiştirilemedi", (e as Error).message);
+    }
+  }
+
   function buy(item: ShopItem) {
-    Alert.alert(item.name, `${item.price} puan harcanacak.`, [
+    Alert.alert(item.name, item.price === 0 ? "Bu eşya şu an ücretsiz." : `${item.price} puan harcanacak.`, [
       { text: "Vazgeç", style: "cancel" },
       {
         text: "Satın al",
@@ -79,14 +91,24 @@ export default function Rewards() {
                 <Text style={{ color: colors.muted }}>{TYPES[item.type]}</Text>
               </View>
               {item.owned ? (
-                <Text style={{ color: colors.muted }}>Sahipsin</Text>
+                <Pressable
+                  onPress={() => toggleEquip(item)}
+                  style={[
+                    styles.buy,
+                    item.equipped ? { borderWidth: 1, borderColor: colors.muted } : { backgroundColor: colors.buttonBackground },
+                  ]}
+                >
+                  <Text style={{ color: item.equipped ? colors.text : colors.buttonText, fontWeight: "600" }}>
+                    {item.equipped ? "Çıkar" : "Kullan"}
+                  </Text>
+                </Pressable>
               ) : (
                 <Pressable
                   disabled={!affordable}
                   onPress={() => buy(item)}
                   style={[styles.buy, { backgroundColor: colors.buttonBackground }, !affordable && { opacity: 0.4 }]}
                 >
-                  <Text style={{ color: colors.buttonText, fontWeight: "600" }}>✦ {item.price}</Text>
+                  <Text style={{ color: colors.buttonText, fontWeight: "600" }}>{item.price === 0 ? "Ücretsiz" : `✦ ${item.price}`}</Text>
                 </Pressable>
               )}
             </View>

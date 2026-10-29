@@ -1,6 +1,7 @@
 import { File as DeviceFile } from "expo-file-system";
 import { api } from "./client";
 import type { ApproxLocation } from "@/utils/location";
+import type { Achievement } from "./account";
 
 export type CurrentCapsule = {
   id: number;
@@ -26,6 +27,8 @@ export type Contribution = {
   country: string | null;
   lat: number | null;
   lng: number | null;
+  borderStyle: string | null;
+  mine: boolean;
 };
 
 export type Gallery = {
@@ -48,10 +51,19 @@ export function submitContribution(capsuleId: number, photoUri: string, location
   // SDK 58'in fetch'i eski { uri, name, type } nesnesini desteklemiyor;
   // dosyayı expo-file-system'in File nesnesiyle ekliyoruz (adı ve MIME türünü kendisi bilir).
   form.append("photo", new DeviceFile(photoUri) as unknown as Blob);
-  return api<{ id: number; pointsAwarded: number; photoUrl: string }>(`/api/capsules/${capsuleId}/contributions`, {
-    method: "POST",
-    body: form,
-  });
+  return api<{ id: number; pointsAwarded: number; photoUrl: string; newAchievements: Achievement[] }>(
+    `/api/capsules/${capsuleId}/contributions`,
+    { method: "POST", body: form },
+  );
 }
 
 export const deleteContribution = (id: number) => api<void>(`/api/contributions/${id}`, { method: "DELETE" });
+
+export type ReportReason = "inappropriate" | "spam" | "other";
+
+export const reportContribution = (id: number, reason: ReportReason) =>
+  api<{ hidden: boolean }>(`/api/contributions/${id}/report`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason }),
+  });

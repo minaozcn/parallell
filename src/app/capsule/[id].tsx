@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
-import { FlatList, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Stack, useLocalSearchParams } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { Muted } from "@/components/screen";
 import { PhotoViewer } from "@/components/photo-viewer";
 import { CapsuleMap } from "@/components/capsule-map";
-import { Gallery, fetchGallery } from "@/api/capsules";
+import { Contribution, Gallery, ReportReason, fetchGallery, reportContribution } from "@/api/capsules";
+import { BORDER_COLORS } from "@/constants/cosmetics";
 import { formatDate } from "@/utils/format";
 import { formatPlace } from "@/utils/location";
 
@@ -23,9 +25,32 @@ export default function CapsuleGallery() {
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const [mode, setMode] = useState<"grid" | "map">("grid");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     fetchGallery(Number(id)).then(setGallery).catch((e) => setError(e.message));
   }, [id]);
+
+  useEffect(load, [load]);
+
+  function report(photo: Contribution) {
+    const send = async (reason: ReportReason) => {
+      try {
+        const { hidden } = await reportContribution(photo.id, reason);
+        Alert.alert("Teşekkürler", "Bildirimin alındı. Topluluğu güvenli tuttuğun için teşekkürler.");
+        if (hidden) {
+          setViewerIndex(null);
+          load(); // fotoğraf gizlendi: galeriyi tazele
+        }
+      } catch (e) {
+        Alert.alert("Bildirilemedi", (e as Error).message);
+      }
+    };
+    Alert.alert("Fotoğrafı bildir", "Neden bildiriyorsun?", [
+      { text: "Uygunsuz içerik", onPress: () => send("inappropriate") },
+      { text: "Spam / alakasız", onPress: () => send("spam") },
+      { text: "Diğer", onPress: () => send("other") },
+      { text: "Vazgeç", style: "cancel" },
+    ]);
+  }
 
   const contributions = gallery?.contributions ?? [];
   const places = new Set(contributions.map((c) => formatPlace(c.city, c.country)).filter(Boolean)).size;
@@ -71,19 +96,35 @@ export default function CapsuleGallery() {
             <Muted>{error ? `Yüklenemedi: ${error}` : gallery ? "Bu kapsüle kimse katılmadı." : "Yükleniyor..."}</Muted>
           }
           renderItem={({ item, index }) => (
-            <Pressable onPress={() => setViewerIndex(index)} style={{ width: size, gap: 4 }}>
-              <Image source={{ uri: item.photoUrl }} style={{ width: size, height: size, borderRadius: 14 }} />
-              {item.city || item.country ? (
-                <Text style={{ color: colors.muted, fontSize: 13 }} numberOfLines={1}>
-                  {formatPlace(item.city, item.country)}
-                </Text>
-              ) : null}
-            </Pressable>
+            // Açılış animasyonu: fotoğraflar sırayla, aşağıdan yumuşakça belirir
+            <Animated.View entering={FadeInDown.delay(Math.min(index, 12) * 80).duration(450)}>
+              <Pressable onPress={() => setViewerIndex(index)} style={{ width: size, gap: 4 }}>
+                <Image
+                  source={{ uri: item.photoUrl }}
+                  style={[
+                    { width: size, height: size, borderRadius: 14 },
+                    item.borderStyle && BORDER_COLORS[item.borderStyle]
+                      ? { borderWidth: 3, borderColor: BORDER_COLORS[item.borderStyle] }
+                      : null,
+                  ]}
+                />
+                {item.city || item.country ? (
+                  <Text style={{ color: colors.muted, fontSize: 13 }} numberOfLines={1}>
+                    {formatPlace(item.city, item.country)}
+                  </Text>
+                ) : null}
+              </Pressable>
+            </Animated.View>
           )}
         />
       )}
 
-      <PhotoViewer photos={contributions} index={viewerIndex} onClose={() => setViewerIndex(null)} />
+      <PhotoViewer
+        photos={contributions}
+        index={viewerIndex}
+        onClose={() => setViewerIndex(null)}
+        onReport={report}
+      />
     </View>
   );
 }

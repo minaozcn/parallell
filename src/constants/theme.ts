@@ -1,4 +1,13 @@
-export const Colors = {
+export type Palette = {
+  background: string;
+  text: string;
+  muted: string;
+  card: string;
+  buttonBackground: string;
+  buttonText: string;
+};
+
+export const Colors: { light: Palette; dark: Palette } = {
   light: {
     background: "#FFFBF7",
     text: "#3D3530",

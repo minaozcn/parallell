@@ -7,10 +7,11 @@ type Props = {
   photos: Contribution[];
   index: number | null; // null = kapalı
   onClose: () => void;
+  onReport: (photo: Contribution) => void;
 };
 
 // Tam ekran fotoğraf görüntüleyici: yana kaydırarak fotoğraflar arasında gezilir.
-export function PhotoViewer({ photos, index, onClose }: Props) {
+export function PhotoViewer({ photos, index, onClose, onReport }: Props) {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
@@ -29,6 +30,11 @@ export function PhotoViewer({ photos, index, onClose }: Props) {
             renderItem={({ item }) => (
               <View style={{ width, height }}>
                 <Image source={{ uri: item.photoUrl }} style={{ width, height }} resizeMode="contain" />
+                {!item.mine && (
+                  <Pressable onPress={() => onReport(item)} hitSlop={12} style={[styles.report, { top: insets.top + 12 }]}>
+                    <Text style={styles.reportText}>Bildir</Text>
+                  </Pressable>
+                )}
                 {item.city || item.country ? (
                   <Text style={[styles.place, { bottom: insets.bottom + 24 }]}>{formatPlace(item.city, item.country)}</Text>
                 ) : null}
@@ -48,5 +54,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#000" },
   close: { position: "absolute", right: 20 },
   closeText: { color: "#fff", fontSize: 24 },
+  report: { position: "absolute", left: 20 },
+  reportText: { color: "#fff", fontSize: 15, opacity: 0.8 },
   place: { position: "absolute", alignSelf: "center", color: "#fff", fontSize: 16, fontWeight: "500" },
 });

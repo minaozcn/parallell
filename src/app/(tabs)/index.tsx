@@ -1,21 +1,21 @@
 import { useCallback, useState } from "react";
-import { Alert, Text, View, StyleSheet, Image, ScrollView, useColorScheme } from "react-native";
+import { Alert, Text, View, StyleSheet, Image, ScrollView } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { useColors } from "@/hooks/use-colors";
+import { usePalette } from "@/hooks/app-theme";
 import { Screen, Muted } from "@/components/screen";
 import { CapsuleCard, ContributionStatus } from "@/components/capsule-card";
 import { PastCapsuleCard } from "@/components/past-capsule-card";
 import { CurrentCapsule, RevealedCapsule, fetchCurrentCapsule, fetchRevealedCapsules, submitContribution, deleteContribution } from "@/api/capsules";
-import { fetchMe } from "@/api/account";
+import { Achievement, fetchMe } from "@/api/account";
+import { AchievementCelebration } from "@/components/achievement-celebration";
 import { formatDate, formatTime } from "@/utils/format";
 import { getApproxLocation } from "@/utils/location";
 
 export default function Home() {
-  const scheme = useColorScheme();
-  const colors = useColors();
+  const { colors, isDark } = usePalette();
   const logo =
-    scheme === "dark"
+    isDark
       ? require("../../../assets/images/logo-dark.png")
       : require("../../../assets/images/logo-light.png");
 
@@ -28,6 +28,10 @@ export default function Home() {
   const [pendingUri, setPendingUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  // Kazanılan rozetler sırayla, her biri ayrı panelde gösterilir
+  const [celebrations, setCelebrations] = useState<Achievement[]>([]);
+  const [celebrationTotal, setCelebrationTotal] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -50,7 +54,11 @@ export default function Home() {
     setUploadError(null);
     try {
       const location = await getApproxLocation(); // izin yoksa null: konumsuz katılım
-      await submitContribution(capsule.id, uri, location);
+      const result = await submitContribution(capsule.id, uri, location);
+      if (result.newAchievements.length > 0) {
+        setCelebrations(result.newAchievements);
+        setCelebrationTotal(result.newAchievements.length);
+      }
       setPendingUri(null); // başarı: artık sunucudaki fotoğrafı göstereceğiz
       await load();
     } catch (e) {
@@ -162,6 +170,12 @@ export default function Home() {
           </ScrollView>
         )}
       </ScrollView>
+
+      <AchievementCelebration
+        queue={celebrations}
+        total={celebrationTotal}
+        onNext={() => setCelebrations((q) => q.slice(1))}
+      />
     </Screen>
   );
 }

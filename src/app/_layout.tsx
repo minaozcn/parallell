@@ -1,13 +1,13 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useColors } from "@/hooks/use-colors";
+import { AppThemeProvider, usePalette } from "@/hooks/app-theme";
 
-export default function RootLayout() {
-  const colors = useColors();
+function RootStack() {
+  const { colors, isDark } = usePalette();
 
   return (
     <>
-      <StatusBar style="auto" />
+      <StatusBar style={isDark ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.background },
@@ -16,8 +16,16 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="capsule/[id]" options={{ title: "" , headerBackTitle: "Geri" }} />
+        <Stack.Screen name="capsule/[id]" options={{ title: "", headerBackTitle: "Geri" }} />
       </Stack>
     </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppThemeProvider>
+      <RootStack />
+    </AppThemeProvider>
   );
 }
