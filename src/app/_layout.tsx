@@ -29,6 +29,8 @@ function RootStack() {
         <Stack.Screen name="capsule/[id]" options={{ title: "", headerBackTitle: "Geri" }} />
         <Stack.Screen name="user/[id]" options={{ title: "", headerBackTitle: "Geri" }} />
         <Stack.Screen name="chat/[id]" options={{ title: "", headerBackTitle: "Geri" }} />
+        <Stack.Screen name="settings" options={{ title: "Ayarlar", headerBackTitle: "Geri" }} />
+        <Stack.Screen name="profile-edit" options={{ title: "Profili düzenle", presentation: "modal" }} />
       </Stack>
     </>
   );

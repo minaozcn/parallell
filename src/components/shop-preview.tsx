@@ -21,17 +21,28 @@ export function ShopPreview({ item, size, colors }: { item: ShopItem; size: numb
   }
 
   if (item.type === "frame") {
+    // Profil çerçevesi: profildeki gibi avatarın etrafında halka
     const look = item.style ? FRAMES[item.style] : null;
+    const avatar = Math.round(size * 0.42);
     return (
-      <View style={[styles.stage, { width: size, height: size, backgroundColor: colors.background, borderRadius: 14 }]}>
-        <CosmeticFrame look={look} radius={16} width={3} style={{ width: size - 24 }}>
-          <View style={[styles.miniCard, { backgroundColor: colors.card }]}>
-            <View style={[styles.avatar, { backgroundColor: colors.buttonBackground }]} />
-            <Text style={[styles.miniName, { color: colors.text }]}>gezgin</Text>
-            <View style={[styles.line, { backgroundColor: colors.muted, width: "70%" }]} />
-            <View style={[styles.line, { backgroundColor: colors.muted, width: "45%" }]} />
+      <View style={[styles.stage, { width: size, height: size, backgroundColor: colors.background, borderRadius: 14, gap: 8 }]}>
+        <CosmeticFrame look={look} radius={avatar} width={3}>
+          <View
+            style={{
+              width: avatar,
+              height: avatar,
+              borderRadius: avatar / 2,
+              backgroundColor: colors.buttonBackground,
+              borderWidth: 3,
+              borderColor: colors.background,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text style={{ color: colors.buttonText, fontSize: avatar * 0.38, fontWeight: "600" }}>G</Text>
           </View>
         </CosmeticFrame>
+        <Text style={[styles.miniName, { color: colors.text }]}>gezgin</Text>
       </View>
     );
   }
@@ -55,8 +66,6 @@ export function ShopPreview({ item, size, colors }: { item: ShopItem; size: numb
 
 const styles = StyleSheet.create({
   stage: { alignItems: "center", justifyContent: "center" },
-  miniCard: { padding: 12, borderRadius: 13, gap: 6, alignItems: "flex-start" },
-  avatar: { width: 28, height: 28, borderRadius: 14 },
   miniName: { fontSize: 14, fontWeight: "700" },
   line: { height: 5, borderRadius: 3, opacity: 0.5 },
   themeScreen: { borderRadius: 14, padding: 12, justifyContent: "space-between", alignItems: "stretch" },
