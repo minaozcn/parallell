@@ -38,9 +38,14 @@ async function unseed() {
   const contributionIds = photos.map((p) => p.id);
   if (contributionIds.length) {
     await conn.query("DELETE FROM reports WHERE contribution_id IN (?)", [contributionIds]);
+    await conn.query("DELETE FROM reactions WHERE contribution_id IN (?)", [contributionIds]);
     await conn.query("DELETE FROM point_transactions WHERE contribution_id IN (?)", [contributionIds]);
   }
   await conn.query("DELETE FROM reports WHERE reporter_id IN (?)", [ids]);
+  await conn.query("DELETE FROM reactions WHERE user_id IN (?)", [ids]);
+  await conn.query("DELETE FROM messages WHERE sender_id IN (?) OR recipient_id IN (?)", [ids, ids]);
+  await conn.query("DELETE FROM blocks WHERE blocker_id IN (?) OR blocked_id IN (?)", [ids, ids]);
+  await conn.query("DELETE FROM user_reports WHERE reporter_id IN (?) OR reported_id IN (?)", [ids, ids]);
   await conn.query("DELETE FROM user_achievements WHERE user_id IN (?)", [ids]);
   await conn.query("DELETE FROM contributions WHERE user_id IN (?)", [ids]);
   await conn.query("DELETE FROM user_items WHERE user_id IN (?)", [ids]);

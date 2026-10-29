@@ -7,6 +7,7 @@ import { pool, withTransaction } from "./db.js";
 import { ensureUpcomingCapsule, isRevealed, photoUrl, countParticipants } from "./capsules.js";
 import { getBalance, awardForContribution, revokeForContribution } from "./points.js";
 import { ACHIEVEMENTS, awardAchievements, revokeAchievements, findAchievement } from "./achievements.js";
+import { isBlocked, areConnected, listConnections } from "./social.js";
 
 const app = express();
 const UPLOAD_DIR = path.resolve("uploads");
@@ -62,6 +63,9 @@ function formatContribution(req, r) {
     lng: r.lng === null ? null : Number(r.lng),
     borderStyle: r.border_style ?? null,
     mine: r.user_id === req.user.id,
+    reacted: Boolean(r.reacted),
+    userId: r.user_id,
+    displayName: r.display_name,
   };
 }
 
@@ -118,7 +122,9 @@ app.get("/api/me", async (req, res) => {
     [startOfMonthIstanbul(), req.user.id],
   );
   res.json({
+    id: req.user.id,
     displayName: req.user.display_name,
+    bio: req.user.bio,
     points: await getBalance(pool, req.user.id),
     items: items.map((i) => ({ ...i, equipped: Boolean(i.equipped) })),
     equipped: await getEquipped(pool, req.user.id),
@@ -128,6 +134,11 @@ app.get("/api/me", async (req, res) => {
 });
 
 app.patch("/api/me", async (req, res) => {
+  if (req.body?.bio !== undefined) {
+    const bio = String(req.body.bio).trim().slice(0, 160);
+    await pool.query("UPDATE users SET bio = ? WHERE id = ?", [bio || null, req.user.id]);
+    if (req.body.displayName === undefined) return res.json({ bio: bio || null });
+  }
   const name = String(req.body?.displayName ?? "").trim();
   // 2-24 karakter: harf (Türkçe dahil), rakam, boşluk, nokta, alt çizgi, tire
   if (!/^[\p{L}\p{N} ._-]{2,24}$/u.test(name)) {
@@ -135,6 +146,31 @@ app.patch("/api/me", async (req, res) => {
   }
   await pool.query("UPDATE users SET display_name = ? WHERE id = ?", [name, req.user.id]);
   res.json({ displayName: name });
+});
+
+app.get("/api/me/contributions", async (req, res) => {
+  const [rows] = await pool.query(
+    `SELECT x.id, x.photo_path, x.city, x.country, x.hidden_at, c.id AS capsule_id, c.prompt, c.opens_at,
+       (SELECT COUNT(*) FROM reactions r WHERE r.contribution_id = x.id) AS reaction_count
+     FROM contributions x JOIN capsules c ON c.id = x.capsule_id
+     WHERE x.user_id = ? AND x.deleted_at IS NULL
+     ORDER BY c.opens_at DESC LIMIT 200`,
+    [req.user.id],
+  );
+  res.json(
+    rows.map((r) => ({
+      id: r.id,
+      photoUrl: photoUrl(req, r.photo_path),
+      city: r.city,
+      country: r.country,
+      capsuleId: r.capsule_id,
+      prompt: r.prompt,
+      opensAt: r.opens_at,
+      revealed: isRevealed(r),
+      hidden: r.hidden_at !== null,
+      reactionCount: Number(r.reaction_count),
+    })),
+  );
 });
 
 app.get("/api/me/transactions", async (req, res) => {
@@ -194,14 +230,18 @@ app.get("/api/capsules/:id/contributions", async (req, res) => {
   if (!isRevealed(capsule)) throw new HttpError(403, "Kapsül henüz açılmadı");
 
   const [rows] = await pool.query(
-    `SELECT x.id, x.user_id, x.photo_path, x.city, x.country, x.lat, x.lng, s.style AS border_style
+    `SELECT x.id, x.user_id, owner.display_name, x.photo_path, x.city, x.country, x.lat, x.lng, s.style AS border_style,
+       EXISTS (SELECT 1 FROM reactions r WHERE r.contribution_id = x.id AND r.user_id = ?) AS reacted
      FROM contributions x
+     JOIN users owner ON owner.id = x.user_id
      LEFT JOIN user_items u ON u.user_id = x.user_id AND u.equipped = 1
        AND u.shop_item_id IN (SELECT id FROM shop_items WHERE type = 'border')
      LEFT JOIN shop_items s ON s.id = u.shop_item_id
      WHERE x.capsule_id = ? AND x.deleted_at IS NULL AND x.hidden_at IS NULL
+       AND NOT EXISTS (SELECT 1 FROM blocks b WHERE (b.blocker_id = ? AND b.blocked_id = x.user_id)
+                                              OR (b.blocker_id = x.user_id AND b.blocked_id = ?))
      ORDER BY x.created_at`,
-    [capsule.id],
+    [req.user.id, capsule.id, req.user.id, req.user.id],
   );
   res.json({
     capsule: { id: capsule.id, prompt: capsule.prompt, opensAt: capsule.opens_at },
@@ -299,6 +339,169 @@ app.post("/api/achievements/:key/equip", async (req, res) => {
   const next = badge === req.params.key ? null : req.params.key;
   await pool.query("UPDATE users SET equipped_badge = ? WHERE id = ?", [next, req.user.id]);
   res.json({ badge: next });
+});
+
+// --- Tepkiler ---
+
+app.post("/api/contributions/:id/react", async (req, res) => {
+  const [[row]] = await pool.query(
+    `SELECT x.user_id, c.opens_at FROM contributions x JOIN capsules c ON c.id = x.capsule_id
+     WHERE x.id = ? AND x.deleted_at IS NULL AND x.hidden_at IS NULL`,
+    [req.params.id],
+  );
+  if (!row || !isRevealed(row)) throw new HttpError(404, "Fotoğraf bulunamadı");
+  if (row.user_id === req.user.id) throw new HttpError(400, "Kendi fotoğrafına tepki veremezsin");
+  if (await isBlocked(pool, req.user.id, row.user_id)) throw new HttpError(404, "Fotoğraf bulunamadı");
+
+  // Varsa kaldır, yoksa ekle (aç/kapa)
+  const [del] = await pool.query("DELETE FROM reactions WHERE contribution_id = ? AND user_id = ?", [
+    req.params.id,
+    req.user.id,
+  ]);
+  const reacted = del.affectedRows === 0;
+  let newConnection = null;
+  if (reacted) {
+    const wasConnected = await areConnected(pool, req.user.id, row.user_id);
+    await pool.query("INSERT INTO reactions (contribution_id, user_id) VALUES (?, ?)", [req.params.id, req.user.id]);
+    if (!wasConnected && (await areConnected(pool, req.user.id, row.user_id))) {
+      const [[other]] = await pool.query("SELECT id, display_name FROM users WHERE id = ?", [row.user_id]);
+      newConnection = { userId: other.id, displayName: other.display_name };
+    }
+  }
+  res.json({ reacted, newConnection });
+});
+
+// --- Profiller (an pasaportu) ---
+
+app.get("/api/users/:id/profile", async (req, res) => {
+  const userId = Number(req.params.id);
+  const [[user]] = await pool.query("SELECT id, display_name, bio FROM users WHERE id = ?", [userId]);
+  if (!user || (await isBlocked(pool, req.user.id, userId))) throw new HttpError(404, "Profil bulunamadı");
+
+  // Sadece açılmış ve gizlenmemiş anlar: kapsül kuralı profilde de geçerli
+  const [moments] = await pool.query(
+    `SELECT x.id, x.photo_path, x.city, x.country, x.lat, x.lng, c.id AS capsule_id, c.prompt, c.opens_at
+     FROM contributions x JOIN capsules c ON c.id = x.capsule_id
+     WHERE x.user_id = ? AND x.deleted_at IS NULL AND x.hidden_at IS NULL AND c.opens_at <= UTC_TIMESTAMP()
+     ORDER BY c.opens_at DESC LIMIT 60`,
+    [userId],
+  );
+  const equipped = await getEquipped(pool, userId);
+  const [[{ achievements }]] = await pool.query(
+    "SELECT COUNT(*) AS achievements FROM user_achievements WHERE user_id = ?",
+    [userId],
+  );
+  res.json({
+    id: user.id,
+    displayName: user.display_name,
+    bio: user.bio,
+    badge: findAchievement(equipped.badge),
+    frame: equipped.frame,
+    isMe: userId === req.user.id,
+    connected: await areConnected(pool, req.user.id, userId),
+    stats: {
+      moments: moments.length,
+      cities: new Set(moments.map((m) => m.city).filter(Boolean)).size,
+      countries: new Set(moments.map((m) => m.country).filter(Boolean)).size,
+      achievements: Number(achievements),
+    },
+    moments: moments.map((m) => ({
+      id: m.id,
+      photoUrl: photoUrl(req, m.photo_path),
+      city: m.city,
+      country: m.country,
+      lat: m.lat === null ? null : Number(m.lat),
+      lng: m.lng === null ? null : Number(m.lng),
+      capsuleId: m.capsule_id,
+      prompt: m.prompt,
+      opensAt: m.opens_at,
+    })),
+  });
+});
+
+app.post("/api/users/:id/block", async (req, res) => {
+  const userId = Number(req.params.id);
+  if (userId === req.user.id) throw new HttpError(400, "Kendini engelleyemezsin");
+  await pool.query("INSERT IGNORE INTO blocks (blocker_id, blocked_id) VALUES (?, ?)", [req.user.id, userId]);
+  res.status(201).json({ blocked: true });
+});
+
+app.post("/api/users/:id/report", async (req, res) => {
+  const reason = req.body?.reason;
+  if (!["harassment", "spam", "inappropriate", "other"].includes(reason)) throw new HttpError(400, "Geçersiz sebep");
+  await pool.query("INSERT INTO user_reports (reporter_id, reported_id, reason) VALUES (?, ?, ?)", [
+    req.user.id,
+    Number(req.params.id),
+    reason,
+  ]);
+  res.status(201).json({ ok: true });
+});
+
+// --- Mesajlar (sadece paralel bağlantılar arasında) ---
+
+app.get("/api/conversations", async (req, res) => {
+  const ids = await listConnections(pool, req.user.id);
+  if (ids.length === 0) return res.json([]);
+  const [rows] = await pool.query(
+    `SELECT u.id, u.display_name,
+       (SELECT m.body FROM messages m
+        WHERE (m.sender_id = u.id AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = u.id)
+        ORDER BY m.id DESC LIMIT 1) AS last_body,
+       (SELECT m.created_at FROM messages m
+        WHERE (m.sender_id = u.id AND m.recipient_id = ?) OR (m.sender_id = ? AND m.recipient_id = u.id)
+        ORDER BY m.id DESC LIMIT 1) AS last_at,
+       (SELECT COUNT(*) FROM messages m WHERE m.sender_id = u.id AND m.recipient_id = ? AND m.read_at IS NULL) AS unread
+     FROM users u WHERE u.id IN (?)
+     ORDER BY last_at IS NULL, last_at DESC`,
+    [req.user.id, req.user.id, req.user.id, req.user.id, req.user.id, ids],
+  );
+  res.json(
+    rows.map((r) => ({
+      userId: r.id,
+      displayName: r.display_name,
+      lastMessage: r.last_body,
+      lastAt: r.last_at,
+      unread: Number(r.unread),
+    })),
+  );
+});
+
+app.get("/api/messages/:userId", async (req, res) => {
+  const other = Number(req.params.userId);
+  if (!(await areConnected(pool, req.user.id, other))) throw new HttpError(403, "Bu kişiyle henüz paralel bağlantın yok");
+  const [rows] = await pool.query(
+    `SELECT id, sender_id, body, created_at FROM messages
+     WHERE (sender_id = ? AND recipient_id = ?) OR (sender_id = ? AND recipient_id = ?)
+     ORDER BY id DESC LIMIT 100`,
+    [req.user.id, other, other, req.user.id],
+  );
+  await pool.query("UPDATE messages SET read_at = ? WHERE sender_id = ? AND recipient_id = ? AND read_at IS NULL", [
+    new Date(),
+    other,
+    req.user.id,
+  ]);
+  res.json(rows.map((m) => ({ id: m.id, mine: m.sender_id === req.user.id, body: m.body, createdAt: m.created_at })));
+});
+
+app.post("/api/messages/:userId", async (req, res) => {
+  const other = Number(req.params.userId);
+  const body = String(req.body?.body ?? "").trim();
+  if (body.length === 0 || body.length > 1000) throw new HttpError(400, "Mesaj 1-1000 karakter olmalı");
+  if (!(await areConnected(pool, req.user.id, other))) throw new HttpError(403, "Bu kişiyle henüz paralel bağlantın yok");
+
+  // Basit spam koruması: dakikada en fazla 20 mesaj
+  const [[{ recent }]] = await pool.query(
+    "SELECT COUNT(*) AS recent FROM messages WHERE sender_id = ? AND created_at > ?",
+    [req.user.id, new Date(Date.now() - 60_000)],
+  );
+  if (recent >= 20) throw new HttpError(429, "Biraz yavaşla: dakikada en fazla 20 mesaj");
+
+  const createdAt = new Date();
+  const [result] = await pool.query(
+    "INSERT INTO messages (sender_id, recipient_id, body, created_at) VALUES (?, ?, ?, ?)",
+    [req.user.id, other, body, createdAt],
+  );
+  res.status(201).json({ id: result.insertId, mine: true, body, createdAt });
 });
 
 // --- Moderasyon ---

@@ -13,7 +13,9 @@ export type Achievement = {
 };
 
 export type Me = {
+  id: number;
   displayName: string;
+  bio: string | null;
   points: number;
   items: Omit<ShopItem, "price" | "owned">[];
   equipped: Equipped;
@@ -40,3 +42,10 @@ export const equipItem = (id: number) =>
 export const fetchAchievements = () => api<Achievement[]>("/api/achievements");
 export const toggleBadge = (key: string) =>
   api<{ badge: string | null }>(`/api/achievements/${key}/equip`, { method: "POST" });
+
+export const updateBio = (bio: string) =>
+  api<{ bio: string | null }>("/api/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ bio }),
+  });

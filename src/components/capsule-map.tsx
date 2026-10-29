@@ -4,8 +4,10 @@ import MapView, { Marker } from "react-native-maps";
 import type { Contribution } from "@/api/capsules";
 import { formatPlace } from "@/utils/location";
 
+type MapPhoto = Pick<Contribution, "id" | "photoUrl" | "city" | "country" | "lat" | "lng">;
+
 type Props = {
-  contributions: Contribution[];
+  contributions: MapPhoto[];
   onSelect: (index: number) => void;
 };
 

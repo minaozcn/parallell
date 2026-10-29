@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Alert, FlatList, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Stack, useLocalSearchParams } from "expo-router";
+import { Stack, router, useLocalSearchParams } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { Muted } from "@/components/screen";
-import { PhotoViewer } from "@/components/photo-viewer";
+import { PhotoViewer, ViewerPhoto } from "@/components/photo-viewer";
 import { CapsuleMap } from "@/components/capsule-map";
-import { Contribution, Gallery, ReportReason, fetchGallery, reportContribution } from "@/api/capsules";
+import { Gallery, ReportReason, fetchGallery, reactToContribution, reportContribution } from "@/api/capsules";
 import { BORDER_COLORS } from "@/constants/cosmetics";
 import { formatDate } from "@/utils/format";
 import { formatPlace } from "@/utils/location";
@@ -31,7 +31,39 @@ export default function CapsuleGallery() {
 
   useEffect(load, [load]);
 
-  function report(photo: Contribution) {
+  // Tepki: ekranı hemen güncelle (iyimser), sunucu hata verirse geri al
+  async function react(photo: ViewerPhoto) {
+    const flip = (reacted: boolean) =>
+      setGallery((g) =>
+        g ? { ...g, contributions: g.contributions.map((c) => (c.id === photo.id ? { ...c, reacted } : c)) } : g,
+      );
+    flip(!photo.reacted);
+    try {
+      const { reacted, newConnection } = await reactToContribution(photo.id);
+      flip(reacted);
+      if (newConnection) {
+        Alert.alert(
+          "Paralel bağlantı ✦",
+          `${newConnection.displayName} ile aynı anda birbirinizin anını gördünüz. Artık mesajlaşabilirsiniz.`,
+          [
+            { text: "Sonra", style: "cancel" },
+            {
+              text: "Mesaj gönder",
+              onPress: () => {
+                setViewerIndex(null);
+                router.push({ pathname: "/chat/[id]", params: { id: String(newConnection.userId), name: newConnection.displayName } });
+              },
+            },
+          ],
+        );
+      }
+    } catch (e) {
+      flip(Boolean(photo.reacted));
+      Alert.alert("Olmadı", (e as Error).message);
+    }
+  }
+
+  function report(photo: ViewerPhoto) {
     const send = async (reason: ReportReason) => {
       try {
         const { hidden } = await reportContribution(photo.id, reason);
@@ -120,10 +152,17 @@ export default function CapsuleGallery() {
       )}
 
       <PhotoViewer
-        photos={contributions}
+        photos={contributions.map((c) => ({ ...c, ownerName: c.displayName }))}
         index={viewerIndex}
         onClose={() => setViewerIndex(null)}
         onReport={report}
+        onReact={react}
+        onOpenOwner={(photo) => {
+          const owner = contributions.find((c) => c.id === photo.id);
+          if (!owner) return;
+          setViewerIndex(null);
+          router.push({ pathname: "/user/[id]", params: { id: String(owner.userId) } });
+        }}
       />
     </View>
   );

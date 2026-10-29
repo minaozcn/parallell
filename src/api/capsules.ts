@@ -29,6 +29,9 @@ export type Contribution = {
   lng: number | null;
   borderStyle: string | null;
   mine: boolean;
+  reacted: boolean;
+  userId: number;
+  displayName: string;
 };
 
 export type Gallery = {
@@ -67,3 +70,24 @@ export const reportContribution = (id: number, reason: ReportReason) =>
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ reason }),
   });
+
+export const reactToContribution = (id: number) =>
+  api<{ reacted: boolean; newConnection: { userId: number; displayName: string } | null }>(
+    `/api/contributions/${id}/react`,
+    { method: "POST" },
+  );
+
+export type MyMoment = {
+  id: number;
+  photoUrl: string;
+  city: string | null;
+  country: string | null;
+  capsuleId: number;
+  prompt: string;
+  opensAt: string;
+  revealed: boolean;
+  hidden: boolean;
+  reactionCount: number;
+};
+
+export const fetchMyMoments = () => api<MyMoment[]>("/api/me/contributions");

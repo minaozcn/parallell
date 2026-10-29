@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Alert, Text, View, StyleSheet, Image, ScrollView } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
@@ -11,6 +11,7 @@ import { Achievement, fetchMe } from "@/api/account";
 import { AchievementCelebration } from "@/components/achievement-celebration";
 import { formatDate, formatTime } from "@/utils/format";
 import { getApproxLocation } from "@/utils/location";
+import { ensurePermission, getPrefs, savePrefs, syncCapsuleNotifications } from "@/utils/notifications";
 
 export default function Home() {
   const { colors, isDark } = usePalette();
@@ -32,11 +33,30 @@ export default function Home() {
   // Kazanılan rozetler sırayla, her biri ayrı panelde gösterilir
   const [celebrations, setCelebrations] = useState<Achievement[]>([]);
   const [celebrationTotal, setCelebrationTotal] = useState(0);
+  const [askNotifications, setAskNotifications] = useState(false);
+
+  // İlk katılımdan sonra, rozet panelleri kapanınca bildirimleri bir kez sor (zorlamadan)
+  useEffect(() => {
+    if (!askNotifications || celebrations.length > 0) return;
+    setAskNotifications(false);
+    Alert.alert("Kapsül açılınca haber verelim mi?", "Sadece kapsül açıldığında bir bildirim gönderilir. Profil'den istediğin zaman değiştirebilirsin.", [
+      { text: "Şimdi değil", style: "cancel", onPress: () => savePrefs({ reveal: false, reminder: false, asked: true }) },
+      {
+        text: "Evet",
+        onPress: async () => {
+          const granted = await ensurePermission();
+          await savePrefs({ reveal: granted, reminder: false, asked: true });
+          if (granted && capsule) syncCapsuleNotifications({ prompt: capsule.prompt, opensAt: capsule.opensAt, joined: true });
+        },
+      },
+    ]);
+  }, [askNotifications, celebrations.length, capsule]);
 
   const load = useCallback(async () => {
     try {
       const [current, past, me] = await Promise.all([fetchCurrentCapsule(), fetchRevealedCapsules(), fetchMe()]);
       setCapsule(current);
+      syncCapsuleNotifications({ prompt: current.prompt, opensAt: current.opensAt, joined: Boolean(current.myContribution) });
       setRevealed(past);
       setPoints(me.points);
       setLoadError(null);
@@ -55,6 +75,7 @@ export default function Home() {
     try {
       const location = await getApproxLocation(); // izin yoksa null: konumsuz katılım
       const result = await submitContribution(capsule.id, uri, location);
+      if (!(await getPrefs()).asked) setAskNotifications(true);
       if (result.newAchievements.length > 0) {
         setCelebrations(result.newAchievements);
         setCelebrationTotal(result.newAchievements.length);

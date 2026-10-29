@@ -1,11 +1,16 @@
 import { useCallback, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { useFocusEffect } from "expo-router";
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
+import { router, useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { Screen, Muted } from "@/components/screen";
-import { Achievement, Me, fetchAchievements, fetchMe, toggleBadge, updateDisplayName } from "@/api/account";
+import { Achievement, Me, fetchAchievements, fetchMe, toggleBadge, updateBio, updateDisplayName } from "@/api/account";
 import { FRAME_COLORS } from "@/constants/cosmetics";
 import { AchievementGrid } from "@/components/achievement-grid";
+import { MomentsGrid } from "@/components/moments-grid";
+import { PhotoViewer } from "@/components/photo-viewer";
+import { MyMoment, fetchCurrentCapsule, fetchMyMoments } from "@/api/capsules";
+import { NotificationPrefs, ensurePermission, getPrefs, savePrefs, syncCapsuleNotifications } from "@/utils/notifications";
+import { formatDate } from "@/utils/format";
 import { Ionicons } from "@expo/vector-icons";
 
 export default function Profile() {
@@ -14,18 +19,51 @@ export default function Profile() {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [bio, setBio] = useState("");
   const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [moments, setMoments] = useState<MyMoment[]>([]);
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [prefs, setPrefs] = useState<NotificationPrefs | null>(null);
 
   const load = useCallback(() => {
-    Promise.all([fetchMe(), fetchAchievements()])
-      .then(([m, list]) => {
+    Promise.all([fetchMe(), fetchAchievements(), fetchMyMoments()])
+      .then(([m, list, mine]) => {
         setMe(m);
         setName(m.displayName);
+        setBio(m.bio ?? "");
         setAchievements(list);
+        setMoments(mine);
         setError(null);
       })
       .catch((e) => setError(e.message));
+    getPrefs().then(setPrefs);
   }, []);
+
+  async function saveBio() {
+    try {
+      const { bio: saved } = await updateBio(bio);
+      setMe((m) => (m ? { ...m, bio: saved } : m));
+    } catch (e) {
+      Alert.alert("Kaydedilemedi", (e as Error).message);
+    }
+  }
+
+  async function updatePrefs(change: Partial<NotificationPrefs>) {
+    if (!prefs) return;
+    const turningOn = Object.values(change).some(Boolean);
+    if (turningOn && !(await ensurePermission())) {
+      Alert.alert("Bildirim izni kapalı", "Ayarlar > parallell (Expo Go) > Bildirimler bölümünden izin verebilirsin.");
+      return;
+    }
+    const next = { ...prefs, ...change, asked: true };
+    setPrefs(next);
+    await savePrefs(next);
+    // Ayar değişti: güncel kapsülün bildirimlerini yeniden kur
+    const capsule = await fetchCurrentCapsule().catch(() => null);
+    if (capsule) {
+      syncCapsuleNotifications({ prompt: capsule.prompt, opensAt: capsule.opensAt, joined: Boolean(capsule.myContribution) });
+    }
+  }
 
   async function onToggleBadge(a: Achievement) {
     try {
@@ -107,6 +145,32 @@ export default function Profile() {
               </Pressable>
             </View>
 
+            <Text style={[styles.section, { color: colors.text }]}>Hakkında</Text>
+            <View style={styles.nameRow}>
+              <TextInput
+                value={bio}
+                onChangeText={setBio}
+                maxLength={160}
+                multiline
+                placeholder="Kısa bir cümle: nereden, neye bakmayı seversin?"
+                placeholderTextColor={colors.muted}
+                style={[styles.input, { color: colors.text, backgroundColor: colors.card }]}
+              />
+              <Pressable
+                disabled={bio.trim() === (me.bio ?? "")}
+                onPress={saveBio}
+                style={[styles.save, { backgroundColor: colors.buttonBackground }, bio.trim() === (me.bio ?? "") && { opacity: 0.4 }]}
+              >
+                <Text style={{ color: colors.buttonText, fontWeight: "600" }}>Kaydet</Text>
+              </Pressable>
+            </View>
+            <Pressable onPress={() => router.push({ pathname: "/user/[id]", params: { id: String(me.id) } })}>
+              <Text style={{ color: colors.text, fontWeight: "600" }}>Profilimi başkalarının gördüğü gibi gör ›</Text>
+            </Pressable>
+
+            <Text style={[styles.section, { color: colors.text }]}>Anların · {moments.length}</Text>
+            <MomentsGrid moments={moments} onOpen={setViewerIndex} />
+
             <Text style={[styles.section, { color: colors.text }]}>
               Rozetler · {achievements.filter((a) => a.earnedAt).length}/{achievements.length}
             </Text>
@@ -125,10 +189,43 @@ export default function Profile() {
               ))
             )}
 
+            <Text style={[styles.section, { color: colors.text }]}>Bildirimler</Text>
+            {prefs && (
+              <>
+                <View style={styles.switchRow}>
+                  <Text style={[styles.switchLabel, { color: colors.text }]}>Kapsül açılınca haber ver</Text>
+                  <Switch value={prefs.reveal} onValueChange={(v) => updatePrefs({ reveal: v })} />
+                </View>
+                <View style={styles.switchRow}>
+                  <Text style={[styles.switchLabel, { color: colors.text }]}>Katılmadıysam son 1 saatte hatırlat</Text>
+                  <Switch value={prefs.reminder} onValueChange={(v) => updatePrefs({ reminder: v })} />
+                </View>
+              </>
+            )}
+
             <Muted>Hesabın bu cihaza bağlı anonim bir kimlik. Uygulamayı silersen puanların kaybolur.</Muted>
           </>
         )}
       </ScrollView>
+
+      <PhotoViewer
+        photos={moments.map((m) => ({
+          ...m,
+          mine: true,
+          caption: [
+            `${m.prompt} · ${formatDate(m.opensAt)}`,
+            m.hidden
+              ? "Bildirimler nedeniyle gizlendi"
+              : m.revealed
+                ? m.reactionCount > 0
+                  ? `${m.reactionCount} kişi bu anını gördü ✦`
+                  : "Henüz tepki yok"
+                : "Kapsül henüz açılmadı",
+          ].join("\n"),
+        }))}
+        index={viewerIndex}
+        onClose={() => setViewerIndex(null)}
+      />
     </Screen>
   );
 }
@@ -144,4 +241,6 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: "row", gap: 8 },
   input: { flex: 1, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 14, fontSize: 16 },
   save: { paddingHorizontal: 18, justifyContent: "center", borderRadius: 14 },
+  switchRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 },
+  switchLabel: { flex: 1, fontSize: 15, marginRight: 12 },
 });
