@@ -7,7 +7,8 @@ import { Muted } from "@/components/screen";
 import { CapsuleMap } from "@/components/capsule-map";
 import { MomentsGrid } from "@/components/moments-grid";
 import { PhotoViewer } from "@/components/photo-viewer";
-import { FRAME_COLORS } from "@/constants/cosmetics";
+import { FRAMES } from "@/constants/cosmetics";
+import { CosmeticFrame } from "@/components/cosmetic-frame";
 import { Profile, UserReportReason, blockUser, fetchProfile, reportUser } from "@/api/social";
 import { formatDate } from "@/utils/format";
 
@@ -84,28 +85,24 @@ export default function UserProfile() {
         {error && <Muted>Yüklenemedi: {error}</Muted>}
         {profile && (
           <>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.card },
-                profile.frame && { borderWidth: 2, borderColor: FRAME_COLORS[profile.frame] },
-              ]}
-            >
-              <View style={styles.nameLine}>
-                <Text style={[styles.name, { color: colors.text }]}>{profile.displayName}</Text>
-                {profile.badge && (
-                  <View style={[styles.badge, { backgroundColor: colors.buttonBackground }]}>
-                    <Ionicons name={profile.badge.icon as IconName} size={13} color={colors.buttonText} />
-                    <Text style={{ color: colors.buttonText, fontSize: 12, fontWeight: "600" }}>{profile.badge.name}</Text>
-                  </View>
-                )}
+            <CosmeticFrame look={profile.frame ? FRAMES[profile.frame] : null} radius={22} width={3}>
+              <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <View style={styles.nameLine}>
+                  <Text style={[styles.name, { color: colors.text }]}>{profile.displayName}</Text>
+                  {profile.badge && (
+                    <View style={[styles.badge, { backgroundColor: colors.buttonBackground }]}>
+                      <Ionicons name={profile.badge.icon as IconName} size={13} color={colors.buttonText} />
+                      <Text style={{ color: colors.buttonText, fontSize: 12, fontWeight: "600" }}>{profile.badge.name}</Text>
+                    </View>
+                  )}
+                </View>
+                {profile.bio ? <Text style={{ color: colors.text }}>{profile.bio}</Text> : null}
+                <Text style={{ color: colors.muted }}>
+                  {profile.stats.moments} an · {profile.stats.cities} şehir · {profile.stats.countries} ülke ·{" "}
+                  {profile.stats.achievements} rozet
+                </Text>
               </View>
-              {profile.bio ? <Text style={{ color: colors.text }}>{profile.bio}</Text> : null}
-              <Text style={{ color: colors.muted }}>
-                {profile.stats.moments} an · {profile.stats.cities} şehir · {profile.stats.countries} ülke ·{" "}
-                {profile.stats.achievements} rozet
-              </Text>
-            </View>
+            </CosmeticFrame>
 
             {!profile.isMe &&
               (profile.connected ? (

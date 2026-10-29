@@ -7,7 +7,8 @@ import { Muted } from "@/components/screen";
 import { PhotoViewer, ViewerPhoto } from "@/components/photo-viewer";
 import { CapsuleMap } from "@/components/capsule-map";
 import { Gallery, ReportReason, fetchGallery, reactToContribution, reportContribution } from "@/api/capsules";
-import { BORDER_COLORS } from "@/constants/cosmetics";
+import { BORDERS } from "@/constants/cosmetics";
+import { CosmeticFrame, frameThickness } from "@/components/cosmetic-frame";
 import { formatDate } from "@/utils/format";
 import { formatPlace } from "@/utils/location";
 
@@ -131,15 +132,16 @@ export default function CapsuleGallery() {
             // Açılış animasyonu: fotoğraflar sırayla, aşağıdan yumuşakça belirir
             <Animated.View entering={FadeInDown.delay(Math.min(index, 12) * 80).duration(450)}>
               <Pressable onPress={() => setViewerIndex(index)} style={{ width: size, gap: 4 }}>
-                <Image
-                  source={{ uri: item.photoUrl }}
-                  style={[
-                    { width: size, height: size, borderRadius: 14 },
-                    item.borderStyle && BORDER_COLORS[item.borderStyle]
-                      ? { borderWidth: 3, borderColor: BORDER_COLORS[item.borderStyle] }
-                      : null,
-                  ]}
-                />
+                {(() => {
+                  // Kenarlık fotoğrafın dışına eklenir; ızgara bozulmasın diye fotoğrafı o kadar küçült
+                  const look = item.borderStyle ? BORDERS[item.borderStyle] : null;
+                  const inner = size - 2 * frameThickness(look);
+                  return (
+                    <CosmeticFrame look={look} radius={14}>
+                      <Image source={{ uri: item.photoUrl }} style={{ width: inner, height: inner, borderRadius: look ? 11 : 14 }} />
+                    </CosmeticFrame>
+                  );
+                })()}
                 {item.city || item.country ? (
                   <Text style={{ color: colors.muted, fontSize: 13 }} numberOfLines={1}>
                     {formatPlace(item.city, item.country)}

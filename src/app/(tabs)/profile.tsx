@@ -4,7 +4,8 @@ import { router, useFocusEffect } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { Screen, Muted } from "@/components/screen";
 import { Achievement, Me, fetchAchievements, fetchMe, toggleBadge, updateBio, updateDisplayName } from "@/api/account";
-import { FRAME_COLORS } from "@/constants/cosmetics";
+import { FRAMES } from "@/constants/cosmetics";
+import { CosmeticFrame } from "@/components/cosmetic-frame";
 import { AchievementGrid } from "@/components/achievement-grid";
 import { MomentsGrid } from "@/components/moments-grid";
 import { PhotoViewer } from "@/components/photo-viewer";
@@ -95,31 +96,27 @@ export default function Profile() {
         {error && <Muted>Yüklenemedi: {error}</Muted>}
         {me && (
           <>
-            <View
-              style={[
-                styles.card,
-                { backgroundColor: colors.card },
-                me.equipped.frame && { borderWidth: 2, borderColor: FRAME_COLORS[me.equipped.frame] },
-              ]}
-            >
-              <View style={styles.nameLine}>
-                <Text style={[styles.name, { color: colors.text }]}>{me.displayName}</Text>
-                {me.badge ? (
-                  <View style={[styles.badge, { backgroundColor: colors.buttonBackground }]}>
-                    <Ionicons name={me.badge.icon as React.ComponentProps<typeof Ionicons>["name"]} size={13} color={colors.buttonText} />
-                    <Text style={{ color: colors.buttonText, fontSize: 12, fontWeight: "600" }}>{me.badge.name}</Text>
-                  </View>
-                ) : null}
+            <CosmeticFrame look={me.equipped.frame ? FRAMES[me.equipped.frame] : null} radius={22} width={3}>
+              <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <View style={styles.nameLine}>
+                  <Text style={[styles.name, { color: colors.text }]}>{me.displayName}</Text>
+                  {me.badge ? (
+                    <View style={[styles.badge, { backgroundColor: colors.buttonBackground }]}>
+                      <Ionicons name={me.badge.icon as React.ComponentProps<typeof Ionicons>["name"]} size={13} color={colors.buttonText} />
+                      <Text style={{ color: colors.buttonText, fontSize: 12, fontWeight: "600" }}>{me.badge.name}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text style={{ color: colors.muted }}>✦ {me.points} puan</Text>
+                <Text style={{ color: colors.muted }}>
+                  {me.stats.thisMonth > 0
+                    ? `Bu ay ${me.stats.thisMonth} kapsüle katıldın · toplam ${me.stats.total}`
+                    : me.stats.total > 0
+                      ? `Toplam ${me.stats.total} kapsüle katıldın`
+                      : "Henüz bir kapsüle katılmadın"}
+                </Text>
               </View>
-              <Text style={{ color: colors.muted }}>✦ {me.points} puan</Text>
-              <Text style={{ color: colors.muted }}>
-                {me.stats.thisMonth > 0
-                  ? `Bu ay ${me.stats.thisMonth} kapsüle katıldın · toplam ${me.stats.total}`
-                  : me.stats.total > 0
-                    ? `Toplam ${me.stats.total} kapsüle katıldın`
-                    : "Henüz bir kapsüle katılmadın"}
-              </Text>
-            </View>
+            </CosmeticFrame>
 
             <Text style={[styles.section, { color: colors.text }]}>Görünen adın</Text>
             <View style={styles.nameRow}>

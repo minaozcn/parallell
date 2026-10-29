@@ -502,6 +502,30 @@ app.post("/api/messages/:userId", async (req, res) => {
     [req.user.id, other, body, createdAt],
   );
   res.status(201).json({ id: result.insertId, mine: true, body, createdAt });
+
+  // SADECE GELİŞTİRME: sahte kullanıcılar birkaç saniye sonra cevap verir (sohbet ekranının yenilenmesini test etmek için)
+  if (process.env.MOCK_REPLIES === "true") {
+    const [[recipient]] = await pool.query("SELECT display_name FROM users WHERE id = ?", [other]);
+    if (recipient?.display_name.startsWith("mock-")) {
+      const replies = [
+        "Ne güzel söyledin ✦",
+        "Aynen öyle! Burada da benzer bir an yaşadım.",
+        "Haha :) Yarınki kapsülde görüşürüz.",
+        "Bunu düşünmemiştim, ilginç!",
+        "Bu arada senin şehrinde hava nasıl?",
+      ];
+      setTimeout(() => {
+        pool
+          .query("INSERT INTO messages (sender_id, recipient_id, body, created_at) VALUES (?, ?, ?, ?)", [
+            other,
+            req.user.id,
+            replies[Math.floor(Math.random() * replies.length)],
+            new Date(),
+          ])
+          .catch((e) => console.error("Sahte cevap gönderilemedi:", e.message));
+      }, 3000);
+    }
+  }
 });
 
 // --- Moderasyon ---
