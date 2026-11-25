@@ -1,56 +1,94 @@
-# Welcome to your Expo app 👋
+# parallell
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A social mobile app built around a daily **photo capsule**: everyone answers the same prompt with a photo during the day, and all photos are revealed together at 20:00 (Istanbul time). Two people who react to each other's photos in the same capsule become a *parallel connection* and can message each other.
 
-## Get started
+> 🚧 **Work in progress.** This is a personal learning project for mobile development. It runs locally (phone + development server on the same network) and is not published to any app store. The interface is in Turkish.
 
-1. Install dependencies
+<!-- Add screenshots here, e.g.:
+<img src="docs/screenshots/home.png" width="250"> <img src="docs/screenshots/archive.png" width="250">
+-->
 
-   ```bash
-   npm install
-   ```
+## Features
 
-2. Start the app
+**Capsules**
+- A new capsule every day with a rotating prompt and a countdown to the reveal
+- Join with a photo from the camera or the gallery; photos stay hidden until the capsule opens
+- City-level location under each photo (coordinates are rounded on the server, exact location is never shared) and a world map view of a capsule
+- Full-screen photo viewer, reactions (✦) and a personal "moments" archive
 
-   ```bash
-   npx expo start
-   ```
+**Social**
+- Parallel connections: mutual reactions in the same capsule unlock one-to-one messaging
+- Public profiles with bio, achievements and equipped cosmetics
+- Blocking users, reporting users and photos; a photo is hidden automatically after a configurable number of reports
 
-In the output, you'll find options to open the app in a
+**Progression**
+- Points for joining a capsule (with an early-bird bonus)
+- Achievements with an in-app celebration panel
+- A shop for cosmetics (avatar frames, photo borders, themes, badges) paid with points
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+**App**
+- Light / dark mode and a pastel visual theme
+- Local reminder notifications (configurable in settings)
+- Anonymous accounts: the server issues a random token on first launch, stored in `expo-secure-store`
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+## Tech Stack
 
-## Get a fresh project
+| Part | Technologies |
+|---|---|
+| Mobile app | React Native, Expo (SDK 58), Expo Router, TypeScript, Reanimated, react-native-maps |
+| Backend | Node.js, Express 5, Multer (photo uploads) |
+| Database | MySQL (mysql2), plain SQL schema + numbered migrations |
 
-When you're ready, run:
+## Project Structure
 
-```bash
-npm run reset-project
+```
+├── src/
+│   ├── app/          # Screens (file-based routing): tabs, capsule, chat, user profile, settings
+│   ├── api/          # API client for the Express server
+│   ├── components/   # UI components (capsule card, map, photo viewer, achievements …)
+│   ├── constants/    # Theme and cosmetics
+│   ├── hooks/        # Theme / color / time hooks
+│   └── utils/        # Location, notifications, formatting
+├── server/
+│   ├── index.js      # REST API
+│   ├── capsules.js, points.js, achievements.js, social.js, prompts.js
+│   ├── schema.sql + migrations/   # Database schema
+│   ├── db-setup.js   # Creates the schema and runs migrations
+│   └── seed-mock.js, seed-connect.js   # Development-only mock data
+└── assets/
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## Getting Started
 
-### Other setup steps
+**Requirements:** Node.js, MySQL, and the Expo Go app (or an emulator).
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+1. **Server**
+   ```bash
+   cd server
+   npm install
+   cp .env.example .env      # fill in your MySQL credentials
+   npm run db:setup          # creates tables and runs migrations
+   npm run dev               # starts the API on port 3000
+   ```
+   Optional, for testing with fake users: `npm run db:seed` (remove with `npm run db:unseed`).
 
-## Learn more
+2. **App** (in the project root)
+   ```bash
+   npm install
+   npx expo start
+   ```
+   Open it in Expo Go. The phone and the computer must be on the same network; the app finds the server automatically from the Expo host address.
 
-To learn more about developing your project with Expo, look at the following resources:
+## Status and Known Limitations
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+- **Local development only.** The API runs over plain HTTP on the local network; there is no deployment, HTTPS or production configuration yet.
+- **No real user accounts.** Identity is an anonymous device token: there is no sign-up, login or account recovery, so reinstalling the app creates a new user.
+- **Point values are placeholders** (set in `.env`) and the economy is not balanced yet.
+- **Development helpers are included:** mock users, mock auto-replies in chat (`MOCK_REPLIES`) and a free shop mode (`SHOP_FREE`). They are off by default.
+- Notifications are local reminders scheduled on the device; there are no server push notifications.
+- Capsule cover images come from a placeholder image service.
+- No automated tests yet.
 
-## Join the community
+## Author
 
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Mina Özcan – [GitHub](https://github.com/minaozcn)
